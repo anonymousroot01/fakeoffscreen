@@ -27,7 +27,7 @@ class BlackScreenService : Service() {
     private var screenW = 0
     private var screenH = 0
 
-    // Desen bölgesi (yüzde olarak)
+    // Desen bölgesi
     private var zoneLeft = 0f
     private var zoneTop = 0f
     private var zoneW = 0f
@@ -103,9 +103,7 @@ class BlackScreenService : Service() {
             addAction(Intent.ACTION_USER_PRESENT)
         })
 
-        // Desen bölgesini prefs'ten oku
         loadZoneFromPrefs()
-
         showOverlay()
     }
 
@@ -121,7 +119,6 @@ class BlackScreenService : Service() {
         zoneLeft = screenW * xPct
         zoneTop = screenH * yPct
 
-        // 3x3 noktaları yerleştir
         val pad = minOf(zoneW, zoneH) / 10f
         val cellW = (zoneW - pad * 2) / 2f
         val cellH = (zoneH - pad * 2) / 2f
@@ -131,7 +128,6 @@ class BlackScreenService : Service() {
                 zoneTop + pad + r * cellH
             )
 
-        // Node yarıçapı: hücre boyutunun %60'ı
         nodeRadiusPx = minOf(cellW, cellH) * 0.6f
         if (nodeRadiusPx < 80f) nodeRadiusPx = 80f
     }
@@ -161,24 +157,16 @@ class BlackScreenService : Service() {
     private fun applyKioskMode() {
         if (!dpm.isAdminActive(adminComponent)) return
         try {
-            // Bu servisi kiosk için whitelist'e ekle
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
-            // Lock task mode başlat
-            if (!kioskActive) {
-                startLockTask()
-                kioskActive = true
-            }
+            kioskActive = true
         } catch (_: Exception) {}
     }
 
     private fun removeKioskMode() {
         if (!dpm.isAdminActive(adminComponent)) return
         try {
-            if (kioskActive) {
-                stopLockTask()
-                kioskActive = false
-            }
             dpm.setLockTaskPackages(adminComponent, emptyArray())
+            kioskActive = false
         } catch (_: Exception) {}
     }
 
@@ -223,20 +211,22 @@ class BlackScreenService : Service() {
         )
         p.screenBrightness = 0.0f
 
-        // Sürekli bar gizle
-        val hideBars = Runnable {
-            @Suppress("DEPRECATION")
-            v.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            )
-            Handler(Looper.getMainLooper()).postDelayed(hideBars, 300)
+        // Sürekli bar gizle - anonim Runnable
+        val hideBarsRunnable = object : Runnable {
+            override fun run() {
+                @Suppress("DEPRECATION")
+                v.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                )
+                Handler(Looper.getMainLooper()).postDelayed(this, 300)
+            }
         }
-        Handler(Looper.getMainLooper()).post(hideBars)
+        Handler(Looper.getMainLooper()).post(hideBarsRunnable)
 
         v.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
@@ -259,7 +249,6 @@ class BlackScreenService : Service() {
         wm.addView(v, p)
         overlay = v
 
-        // Kiosk
         applyKioskMode()
     }
 
@@ -288,7 +277,6 @@ class BlackScreenService : Service() {
     }
 
     private fun findNode(x: Float, y: Float): Int? {
-        // Desen bölgesi dışındaysa reddet
         if (x < zoneLeft || x > zoneLeft + zoneW) return null
         if (y < zoneTop || y > zoneTop + zoneH) return null
         for (r in 0..2) for (c in 0..2) {

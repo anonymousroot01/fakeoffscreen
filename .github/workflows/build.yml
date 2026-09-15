@@ -21,13 +21,17 @@ jobs:
       - name: Create local.properties
         run: echo "sdk.dir=/usr/local/lib/android/sdk" > local.properties
 
-      - name: Make gradlew executable
+      - name: Download Gradle 8.2
         run: |
-          gradle wrapper --gradle-version 8.2 || true
-          chmod +x gradlew || true
+          wget https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
+
+      - name: Verify Gradle
+        run: gradle --version
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon || gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

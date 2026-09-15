@@ -14,18 +14,25 @@
         android:text="1) Overlay İzni Ver"/>
 
     <Button
+        android:id="@+id/btnDndPermission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="2) DND İzni Ver"/>
+
+    <Button
         android:id="@+id/btnSetPattern"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="2) Deseni Ayarla"/>
+        android:text="3) Deseni Ayarla"/>
 
     <Button
         android:id="@+id/btnStart"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="3) Ekranı Karart"/>
+        android:text="4) Ekranı Karart"/>
 
     <Button
         android:id="@+id/btnStop"

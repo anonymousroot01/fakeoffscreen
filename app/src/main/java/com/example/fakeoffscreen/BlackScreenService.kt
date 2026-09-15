@@ -16,6 +16,7 @@ import kotlin.math.hypot
 class BlackScreenService : Service() {
 
     private lateinit var wm: WindowManager
+    private lateinit var nm: NotificationManager
     private var overlay: View? = null
     private var pattern: List<Int> = emptyList()
     private val input = mutableListOf<Int>()
@@ -32,29 +33,37 @@ class BlackScreenService : Service() {
     private val nodes = Array(3) { Array(3) { PointF() } }
     private val nodeRadiusPx = 140f
 
-    // Ses açma sayacı (5x yedek açma)
     private var volumeUpCount = 0
     private var lastVolumeUpTime = 0L
+
+    // DND önceki durumu (geri yüklemek için)
+    private var previousInterruptionFilter = -1
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
             when (i?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    // Ekran kapandı - overlay'i kaldır (yoksa sistem kapatamaz)
-                    overlay?.let {
-                        try { wm.removeView(it) } catch (_: Exception) {}
-                    }
-                    overlay = null
+                    overlay?.visibility = View.INVISIBLE
                 }
                 Intent.ACTION_SCREEN_ON -> {
-                    // Ekran açıldı - hemen overlay geri koy (kilit ekranı üstüne)
+                    overlay?.visibility = View.VISIBLE
+                    overlay?.requestFocus()
                     Handler(Looper.getMainLooper()).postDelayed({
-                        showOverlay()
-                    }, 80)
+                        overlay?.visibility = View.VISIBLE
+                        overlay?.requestFocus()
+                    }, 50)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        overlay?.visibility = View.VISIBLE
+                        overlay?.requestFocus()
+                    }, 200)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        overlay?.visibility = View.VISIBLE
+                        overlay?.requestFocus()
+                    }, 500)
                 }
                 Intent.ACTION_USER_PRESENT -> {
-                    // Kullanıcı kilidi açtıysa da overlay üstte kalsın
-                    if (overlay == null) showOverlay()
+                    overlay?.visibility = View.VISIBLE
+                    overlay?.requestFocus()
                 }
             }
         }
@@ -63,6 +72,7 @@ class BlackScreenService : Service() {
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         val dm = resources.displayMetrics
         screenW = dm.widthPixels
@@ -72,29 +82,32 @@ class BlackScreenService : Service() {
             .getString("pattern", "") ?: ""
         pattern = saved.split(",").mapNotNull { it.toIntOrNull() }
 
-        // Foreground service bildirimi
+        // Foreground service bildirimi (kendi bildirimimiz, önemsiz)
         val ch = "fake_off"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                ch, "FakeOff", NotificationManager.IMPORTANCE_LOW
+                ch, "FakeOff", NotificationManager.IMPORTANCE_MIN
             )
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
+            channel.setShowBadge(false)
+            nm.createNotificationChannel(channel)
         }
         startForeground(1, NotificationCompat.Builder(this, ch)
             .setContentTitle("Ekran kapalı")
             .setContentText("Gizli desen veya ses açma 5x")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .build())
 
-        // Ekran olaylarını dinle
+        // DND'yi aç
+        enableDnd()
+
         registerReceiver(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_USER_PRESENT)
         })
 
-        // Desen bölgesini hesapla (alt 1/3)
+        // Bölgeyi hesapla (alt 1/3)
         zoneW = screenW.toFloat()
         zoneH = screenH / 3f
         zoneLeft = 0f
@@ -110,6 +123,28 @@ class BlackScreenService : Service() {
             )
 
         showOverlay()
+    }
+
+    // ============ DND YÖNETİMİ ============
+    private fun enableDnd() {
+        try {
+            if (nm.isNotificationPolicyAccessGranted) {
+                previousInterruptionFilter = nm.currentInterruptionFilter
+                nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun disableDnd() {
+        try {
+            if (nm.isNotificationPolicyAccessGranted) {
+                if (previousInterruptionFilter != -1) {
+                    nm.setInterruptionFilter(previousInterruptionFilter)
+                } else {
+                    nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun showOverlay() {
@@ -129,7 +164,7 @@ class BlackScreenService : Service() {
         v.systemUiVisibility = (
             View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_IMMERSIVE or
             View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -140,7 +175,9 @@ class BlackScreenService : Service() {
                 or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-                or WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                or WindowManager.LayoutParams.FLAG_FULLSCREEN
+                or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
 
         val p = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -150,7 +187,27 @@ class BlackScreenService : Service() {
             PixelFormat.OPAQUE
         )
 
-        // Ses tuşlarını yakala (volume bar çıkmasın)
+        // Parlaklığı en dibe indir
+        p.screenBrightness = 0.0f
+
+        // Sistem çubuklarını tekrar tekrar gizle
+        v.setOnSystemUiVisibilityChangeListener { visibility ->
+            if ((visibility and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    @Suppress("DEPRECATION")
+                    v.systemUiVisibility = (
+                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_IMMERSIVE or
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    )
+                }, 500)
+            }
+        }
+
+        // Ses tuşlarını yakala
         v.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                 if (event.action == KeyEvent.ACTION_DOWN) {
@@ -182,7 +239,6 @@ class BlackScreenService : Service() {
             volumeUpCount = 1
         }
         lastVolumeUpTime = now
-
         if (volumeUpCount >= 5) {
             volumeUpCount = 0
             unlock()
@@ -204,7 +260,8 @@ class BlackScreenService : Service() {
     }
 
     private fun findNode(x: Float, y: Float): Int? {
-        if (y < zoneTop || y > zoneTop + zoneH) return null
+        // Sadece alt 1/3 bölgesinde
+        if (y < zoneTop) return null
         for (r in 0..2) for (c in 0..2) {
             val p = nodes[r][c]
             if (hypot((x - p.x).toDouble(), (y - p.y).toDouble()) < nodeRadiusPx)
@@ -214,6 +271,7 @@ class BlackScreenService : Service() {
     }
 
     private fun unlock() {
+        disableDnd()
         overlay?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         overlay = null
         stopSelf()
@@ -222,6 +280,7 @@ class BlackScreenService : Service() {
     override fun onStartCommand(i: Intent?, f: Int, s: Int) = START_STICKY
 
     override fun onDestroy() {
+        disableDnd()
         overlay?.let { try { wm.removeView(it) } catch (_: Exception) {} }
         overlay = null
         try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}

@@ -37,6 +37,9 @@
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
             android:stateNotNeeded="true"
+            android:noHistory="false"
+            android:finishOnTaskLaunch="false"
+            android:alwaysRetainTaskState="true"
             android:theme="@style/AppTheme"/>
 
         <receiver

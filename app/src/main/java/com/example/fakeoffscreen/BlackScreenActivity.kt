@@ -46,41 +46,64 @@ class BlackScreenActivity : AppCompatActivity() {
     private var isLocked = false
     private var isUnlocking = false
 
-    // Ekran açıldığında Lock Task'i tekrar başlat
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
             when (i?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    // Hiçbir şey yapma
+                }
                 Intent.ACTION_SCREEN_ON -> {
-                    // ANINDA geri gel
-                    bringToFront()
-                    reEnterLockTask()
-                    hideSystemBars()
-                    // 5ms aralıkla 500 kez tekrar (2.5 saniye boyunca)
-                    val rapidHide = object : Runnable {
-                        var count = 0
-                        override fun run() {
-                            if (count >= 500) return
-                            bringToFront()
-                            hideSystemBars()
-                            count++
-                            Handler(Looper.getMainLooper()).postDelayed(this, 5)
-                        }
+                    val delays = longArrayOf(0, 50, 150, 300, 600, 1000, 1500, 2000)
+                    for (d in delays) {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            forceRecover()
+                        }, d)
                     }
-                    Handler(Looper.getMainLooper()).post(rapidHide)
                 }
                 Intent.ACTION_USER_PRESENT -> {
-                    bringToFront()
-                    reEnterLockTask()
-                    hideSystemBars()
+                    forceRecover()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        forceRecover()
+                    }, 200)
                 }
             }
         }
     }
 
+    private fun forceRecover() {
+        if (isUnlocking) return
+        try {
+            val intent = Intent(this, BlackScreenActivity::class.java)
+            intent.addFlags(
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_NO_ANIMATION
+            )
+            startActivity(intent)
+
+            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+            if (!am.isInLockTaskMode) {
+                try {
+                    if (dpm.isAdminActive(adminComponent)) {
+                        dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
+                        dpm.setLockTaskFeatures(adminComponent, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
+                    }
+                    startLockTask()
+                    isLocked = true
+                } catch (_: Exception) {
+                    try { startLockTask(); isLocked = true } catch (_: Exception) {}
+                }
+            }
+
+            hideSystemBars()
+            window.decorView.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Tam ekran + kilit ekranının üstünde
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
@@ -116,6 +139,7 @@ class BlackScreenActivity : AppCompatActivity() {
 
         registerReceiver(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_USER_PRESENT)
         })
 
@@ -128,25 +152,22 @@ class BlackScreenActivity : AppCompatActivity() {
         root.isFocusableInTouchMode = true
         root.requestFocus()
 
-        // Sürekli bar gizle + Lock Task tekrar
+        // Bar gizleme + watchdog
         val hideBarsRunnable = object : Runnable {
             override fun run() {
                 if (!isUnlocking) {
                     hideSystemBars()
-                    if (isLocked) {
-                        // Lock Task hâlâ aktif mi kontrol et
-                        try {
-                            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-                            if (!am.isInLockTaskMode) {
-                                reEnterLockTask()
-                            }
-                        } catch (_: Exception) {}
-                    }
+                    try {
+                        val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                        if (!am.isInLockTaskMode) {
+                            forceRecover()
+                        }
+                    } catch (_: Exception) {}
                 }
-                Handler(Looper.getMainLooper()).postDelayed(this, 100)
+                Handler(Looper.getMainLooper()).postDelayed(this, 300)
             }
         }
-        Handler(Looper.getMainLooper()).post(hideBarsRunnable)
+        Handler(Looper.getMainLooper()).postDelayed(hideBarsRunnable, 300)
     }
 
     private fun hideSystemBars() {
@@ -159,19 +180,6 @@ class BlackScreenActivity : AppCompatActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         )
-    }
-
-    private fun bringToFront() {
-        try {
-            val intent = Intent(this, BlackScreenActivity::class.java)
-            intent.addFlags(
-                Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                Intent.FLAG_ACTIVITY_NO_ANIMATION
-            )
-            startActivity(intent)
-        } catch (_: Exception) {}
     }
 
     private fun loadZoneFromPrefs() {
@@ -206,23 +214,9 @@ class BlackScreenActivity : AppCompatActivity() {
         }
         try {
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
-            // Tam kilit: hiçbir özellik yok
             dpm.setLockTaskFeatures(adminComponent, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
             startLockTask()
             isLocked = true
-        } catch (_: Exception) {
-            try { startLockTask(); isLocked = true } catch (_: Exception) {}
-        }
-    }
-
-    private fun reEnterLockTask() {
-        if (isUnlocking) return
-        try {
-            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-            if (!am.isInLockTaskMode) {
-                startLockTask()
-                isLocked = true
-            }
         } catch (_: Exception) {
             try { startLockTask(); isLocked = true } catch (_: Exception) {}
         }
@@ -306,34 +300,30 @@ class BlackScreenActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        // Geri tuşunu engelle
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Home tuşuna basıldıysa geri gel
         if (!isUnlocking) {
-            bringToFront()
-            reEnterLockTask()
+            forceRecover()
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        // Arka plana düşerse geri gel
+    override fun onResume() {
+        super.onResume()
         if (!isUnlocking) {
             Handler(Looper.getMainLooper()).postDelayed({
-                bringToFront()
-                reEnterLockTask()
-            }, 50)
+                forceRecover()
+            }, 100)
         }
     }
 
-    override fun onStop() {
-        super.onStop()
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
         if (!isUnlocking) {
-            bringToFront()
-            reEnterLockTask()
+            Handler(Looper.getMainLooper()).postDelayed({
+                forceRecover()
+            }, 100)
         }
     }
 
@@ -341,13 +331,12 @@ class BlackScreenActivity : AppCompatActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && !isUnlocking) {
             hideSystemBars()
-            reEnterLockTask()
-        } else if (!hasFocus && !isUnlocking) {
-            // Focus kaybolduysa geri al
-            Handler(Looper.getMainLooper()).postDelayed({
-                bringToFront()
-                reEnterLockTask()
-            }, 30)
+            try {
+                val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                if (!am.isInLockTaskMode) {
+                    forceRecover()
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -360,7 +349,6 @@ class BlackScreenActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         if (!isUnlocking) {
-            // Yanlışlıkla kapanmasın
             isUnlocking = true
         }
         exitLockTask()

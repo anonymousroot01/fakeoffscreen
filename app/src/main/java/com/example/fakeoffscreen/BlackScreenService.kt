@@ -27,7 +27,6 @@ class BlackScreenService : Service() {
     private var screenW = 0
     private var screenH = 0
 
-    // Desen bölgesi
     private var zoneLeft = 0f
     private var zoneTop = 0f
     private var zoneW = 0f
@@ -89,8 +88,8 @@ class BlackScreenService : Service() {
             nm.createNotificationChannel(channel)
         }
         startForeground(1, NotificationCompat.Builder(this, ch)
-            .setContentTitle("Ekran kapalı")
-            .setContentText("Gizli desen veya ses açma 5x")
+            .setContentTitle("Ekran kapali")
+            .setContentText("Gizli desen veya ses acma 5x")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build())
@@ -132,7 +131,6 @@ class BlackScreenService : Service() {
         if (nodeRadiusPx < 80f) nodeRadiusPx = 80f
     }
 
-    // ============ DND ============
     private fun enableDnd() {
         try {
             if (nm.isNotificationPolicyAccessGranted) {
@@ -153,7 +151,6 @@ class BlackScreenService : Service() {
         } catch (_: Exception) {}
     }
 
-    // ============ KIOSK MODE ============
     private fun applyKioskMode() {
         if (!dpm.isAdminActive(adminComponent)) return
         try {
@@ -211,7 +208,6 @@ class BlackScreenService : Service() {
         )
         p.screenBrightness = 0.0f
 
-        // Sürekli bar gizle - anonim Runnable
         val hideBarsRunnable = object : Runnable {
             override fun run() {
                 @Suppress("DEPRECATION")
@@ -223,10 +219,26 @@ class BlackScreenService : Service() {
                     View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
                     View.SYSTEM_UI_FLAG_LAYOUT_STABLE
                 )
-                Handler(Looper.getMainLooper()).postDelayed(this, 300)
+                Handler(Looper.getMainLooper()).postDelayed(this, 100)
             }
         }
         Handler(Looper.getMainLooper()).post(hideBarsRunnable)
+
+        v.setOnSystemUiVisibilityChangeListener { visibility ->
+            if ((visibility and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                Handler(Looper.getMainLooper()).postDelayed({
+                    @Suppress("DEPRECATION")
+                    v.systemUiVisibility = (
+                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    )
+                }, 50)
+            }
+        }
 
         v.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
@@ -237,10 +249,15 @@ class BlackScreenService : Service() {
             if (keyCode == KeyEvent.KEYCODE_BACK) return@setOnKeyListener true
             if (keyCode == KeyEvent.KEYCODE_HOME) return@setOnKeyListener true
             if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) return@setOnKeyListener true
+            if (keyCode == KeyEvent.KEYCODE_MENU) return@setOnKeyListener true
             false
         }
 
         v.setOnTouchListener { _, e ->
+            if (e.x < zoneLeft || e.x > zoneLeft + zoneW ||
+                e.y < zoneTop || e.y > zoneTop + zoneH) {
+                return@setOnTouchListener true
+            }
             handleTouch(e)
             true
         }

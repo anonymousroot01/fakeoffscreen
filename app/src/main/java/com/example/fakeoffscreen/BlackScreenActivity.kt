@@ -1,6 +1,6 @@
 package com.example.fakeoffscreen
 
-import android.app.Activity
+import android.app.ActivityManager
 import android.app.NotificationManager
 import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
@@ -44,21 +44,34 @@ class BlackScreenActivity : AppCompatActivity() {
     private var lastVolumeUpTime = 0L
 
     private var isLocked = false
+    private var isUnlocking = false
 
-    // Ekran açıldığında tekrar lock task
+    // Ekran açıldığında Lock Task'i tekrar başlat
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
             when (i?.action) {
                 Intent.ACTION_SCREEN_ON -> {
-                    // Anında lock task'i tekrar uygula
-                    if (isLocked) {
-                        try { startLockTask() } catch (_: Exception) {}
+                    // ANINDA geri gel
+                    bringToFront()
+                    reEnterLockTask()
+                    hideSystemBars()
+                    // 5ms aralıkla 500 kez tekrar (2.5 saniye boyunca)
+                    val rapidHide = object : Runnable {
+                        var count = 0
+                        override fun run() {
+                            if (count >= 500) return
+                            bringToFront()
+                            hideSystemBars()
+                            count++
+                            Handler(Looper.getMainLooper()).postDelayed(this, 5)
+                        }
                     }
+                    Handler(Looper.getMainLooper()).post(rapidHide)
                 }
                 Intent.ACTION_USER_PRESENT -> {
-                    if (isLocked) {
-                        try { startLockTask() } catch (_: Exception) {}
-                    }
+                    bringToFront()
+                    reEnterLockTask()
+                    hideSystemBars()
                 }
             }
         }
@@ -97,38 +110,39 @@ class BlackScreenActivity : AppCompatActivity() {
 
         loadZoneFromPrefs()
 
-        // Tam ekran
         hideSystemBars()
-
-        // DND aç
         enableDnd()
-
-        // Lock Task Mode başlat
         enterLockTask()
 
-        // Ekran receiver
         registerReceiver(screenReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
         })
 
-        // Arka planı siyah yap
         val root = findViewById<View>(R.id.rootLayout)
         root.setBackgroundColor(Color.BLACK)
-
-        // Touch listener
         root.setOnTouchListener { _, event ->
             handleTouch(event)
             true
         }
-
         root.isFocusableInTouchMode = true
         root.requestFocus()
 
-        // Bar gizleme tekrarla
+        // Sürekli bar gizle + Lock Task tekrar
         val hideBarsRunnable = object : Runnable {
             override fun run() {
-                hideSystemBars()
+                if (!isUnlocking) {
+                    hideSystemBars()
+                    if (isLocked) {
+                        // Lock Task hâlâ aktif mi kontrol et
+                        try {
+                            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                            if (!am.isInLockTaskMode) {
+                                reEnterLockTask()
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
                 Handler(Looper.getMainLooper()).postDelayed(this, 100)
             }
         }
@@ -145,6 +159,19 @@ class BlackScreenActivity : AppCompatActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         )
+    }
+
+    private fun bringToFront() {
+        try {
+            val intent = Intent(this, BlackScreenActivity::class.java)
+            intent.addFlags(
+                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_NO_ANIMATION
+            )
+            startActivity(intent)
+        } catch (_: Exception) {}
     }
 
     private fun loadZoneFromPrefs() {
@@ -173,19 +200,32 @@ class BlackScreenActivity : AppCompatActivity() {
     }
 
     private fun enterLockTask() {
+        if (!dpm.isAdminActive(adminComponent)) {
+            try { startLockTask(); isLocked = true } catch (_: Exception) {}
+            return
+        }
         try {
-            if (dpm.isAdminActive(adminComponent)) {
-                dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
+            dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
+            // Tam kilit: hiçbir özellik yok
+            dpm.setLockTaskFeatures(adminComponent, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
+            startLockTask()
+            isLocked = true
+        } catch (_: Exception) {
+            try { startLockTask(); isLocked = true } catch (_: Exception) {}
+        }
+    }
+
+    private fun reEnterLockTask() {
+        if (isUnlocking) return
+        try {
+            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+            if (!am.isInLockTaskMode) {
                 startLockTask()
                 isLocked = true
-            } else {
-                // Admin yoksa yine de dene
-                try {
-                    startLockTask()
-                    isLocked = true
-                } catch (_: Exception) {}
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            try { startLockTask(); isLocked = true } catch (_: Exception) {}
+        }
     }
 
     private fun exitLockTask() {
@@ -264,27 +304,65 @@ class BlackScreenActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Geri tuşunu engelle
     }
 
     override fun onUserLeaveHint() {
-        // Home tuşunu engelle - tekrar öne gel
         super.onUserLeaveHint()
-        if (isLocked) {
-            val intent = Intent(this, BlackScreenActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
+        // Home tuşuna basıldıysa geri gel
+        if (!isUnlocking) {
+            bringToFront()
+            reEnterLockTask()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Arka plana düşerse geri gel
+        if (!isUnlocking) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                bringToFront()
+                reEnterLockTask()
+            }, 50)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isUnlocking) {
+            bringToFront()
+            reEnterLockTask()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && !isUnlocking) {
+            hideSystemBars()
+            reEnterLockTask()
+        } else if (!hasFocus && !isUnlocking) {
+            // Focus kaybolduysa geri al
+            Handler(Looper.getMainLooper()).postDelayed({
+                bringToFront()
+                reEnterLockTask()
+            }, 30)
         }
     }
 
     private fun unlock() {
+        isUnlocking = true
         exitLockTask()
         disableDnd()
         finish()
     }
 
     override fun onDestroy() {
+        if (!isUnlocking) {
+            // Yanlışlıkla kapanmasın
+            isUnlocking = true
+        }
         exitLockTask()
         disableDnd()
         try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}

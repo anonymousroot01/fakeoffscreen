@@ -11,53 +11,85 @@
         android:padding="24dp"
         android:gravity="center">
 
+        <!-- Başlık -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⬛ FakeOffScreen"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_slogan"
+            android:textSize="14sp"
+            android:textColor="#AAAAAA"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- Butonlar -->
         <Button
             android:id="@+id/btnOverlayPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1) Overlay İzni Ver"/>
+            android:text="@string/btn_overlay"
+            android:layout_marginBottom="10dp"/>
 
         <Button
             android:id="@+id/btnAdminPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="2) Admin İzni Ver (Kiosk)"/>
+            android:text="@string/btn_admin"
+            android:layout_marginBottom="10dp"/>
 
         <Button
             android:id="@+id/btnDndPermission"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="3) DND İzni Ver"/>
+            android:text="@string/btn_dnd"
+            android:layout_marginBottom="10dp"/>
 
         <Button
             android:id="@+id/btnSetPattern"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="4) Deseni Ayarla"/>
+            android:text="@string/btn_pattern"
+            android:layout_marginBottom="10dp"/>
 
         <Button
             android:id="@+id/btnZoneSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="5) Desen Alanı Ayarla"/>
+            android:text="@string/btn_zone"
+            android:layout_marginBottom="10dp"/>
 
         <Button
             android:id="@+id/btnStart"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="6) Ekranı Karart (Kiosk)"/>
+            android:text="@string/btn_start"
+            android:backgroundTint="#B00020"
+            android:layout_marginBottom="20dp"/>
 
         <Button
-            android:id="@+id/btnStop"
+            android:id="@+id/btnResetDisclaimer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Durdur"/>
+            android:text="@string/btn_reset_disclaimer"
+            android:backgroundTint="#444444"
+            android:textSize="12sp"/>
+
+        <!-- Alt imza -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Geliştirici: @ByAnonymous"
+            android:textSize="12sp"
+            android:textStyle="italic"
+            android:textColor="#666666"
+            android:layout_marginTop="24dp"/>
 
     </LinearLayout>
 </ScrollView>

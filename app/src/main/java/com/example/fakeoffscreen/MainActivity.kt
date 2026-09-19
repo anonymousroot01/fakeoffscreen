@@ -24,61 +24,40 @@ class MainActivity : AppCompatActivity() {
         adminComponent = ComponentName(this, AdminReceiver::class.java)
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
-        // 1) Overlay İzni
         findViewById<Button>(R.id.btnOverlayPermission).setOnClickListener {
             if (!Settings.canDrawOverlays(this)) {
-                startActivity(
-                    Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                )
-            } else {
-                Toast.makeText(this, "Overlay izni var", Toast.LENGTH_SHORT).show()
-            }
+                startActivity(Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                ))
+            } else Toast.makeText(this, "Overlay izni var", Toast.LENGTH_SHORT).show()
         }
 
-        // 2) Admin İzni
         findViewById<Button>(R.id.btnAdminPermission).setOnClickListener {
             if (!dpm.isAdminActive(adminComponent)) {
                 val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                     putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
-                    putExtra(
-                        DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                        "Kiosk modu için gerekli"
-                    )
+                    putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Kiosk modu için gerekli")
                 }
                 startActivity(intent)
-            } else {
-                Toast.makeText(this, "Admin izni var", Toast.LENGTH_SHORT).show()
-            }
+            } else Toast.makeText(this, "Admin izni var", Toast.LENGTH_SHORT).show()
         }
 
-        // 3) DND İzni
         findViewById<Button>(R.id.btnDndPermission).setOnClickListener {
             if (!nm.isNotificationPolicyAccessGranted) {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-                Toast.makeText(
-                    this,
-                    "FakeOffScreen'i bul ve izin ver",
-                    Toast.LENGTH_LONG
-                ).show()
-            } else {
-                Toast.makeText(this, "DND izni var", Toast.LENGTH_SHORT).show()
-            }
+                Toast.makeText(this, "FakeOffScreen'i bul ve izin ver", Toast.LENGTH_LONG).show()
+            } else Toast.makeText(this, "DND izni var", Toast.LENGTH_SHORT).show()
         }
 
-        // 4) Deseni Ayarla
         findViewById<Button>(R.id.btnSetPattern).setOnClickListener {
             startActivity(Intent(this, PatternSetupActivity::class.java))
         }
 
-        // 5) Desen Alanı Ayarla
         findViewById<Button>(R.id.btnZoneSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
-        // 6) Ekranı Karart (Activity başlat)
         findViewById<Button>(R.id.btnStart).setOnClickListener {
             if (!dpm.isAdminActive(adminComponent)) {
                 Toast.makeText(this, "Admin izni ver", Toast.LENGTH_SHORT).show()
@@ -90,6 +69,15 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             startActivity(Intent(this, BlackScreenActivity::class.java))
+            finish()
+        }
+
+        findViewById<Button>(R.id.btnResetDisclaimer).setOnClickListener {
+            getSharedPreferences("settings", MODE_PRIVATE)
+                .edit()
+                .putBoolean("disclaimer_accepted", false)
+                .apply()
+            startActivity(Intent(this, DisclaimerActivity::class.java))
             finish()
         }
     }

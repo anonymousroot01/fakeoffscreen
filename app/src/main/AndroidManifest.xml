@@ -10,9 +10,10 @@
     <application
         android:allowBackup="true"
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@style/AppTheme">
 
-        <!-- SPLASH (İlk açılan) -->
+        <!-- SPLASH (İlk açılan ekran) -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -23,7 +24,7 @@
             </intent-filter>
         </activity>
 
-        <!-- DISCLAIMER -->
+        <!-- YASAL METİN -->
         <activity
             android:name=".DisclaimerActivity"
             android:exported="false"/>
@@ -33,14 +34,17 @@
             android:name=".MainActivity"
             android:exported="false"/>
 
+        <!-- DESEN AYARLAMA -->
         <activity
             android:name=".PatternSetupActivity"
             android:exported="false"/>
 
+        <!-- DESEN ALANI AYARLAMA -->
         <activity
             android:name=".SettingsActivity"
             android:exported="false"/>
 
+        <!-- SİYAH EKRAN (Kiosk) -->
         <activity
             android:name=".BlackScreenActivity"
             android:exported="false"
@@ -54,6 +58,7 @@
             android:alwaysRetainTaskState="true"
             android:theme="@style/AppTheme"/>
 
+        <!-- ADMİN ALICI -->
         <receiver
             android:name=".AdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"

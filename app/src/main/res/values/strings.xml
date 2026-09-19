@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FakeOffScreen</string>
+    <string name="app_developer">@ByAnonymous</string>
+    <string name="app_slogan">Ekran kapalı, kontrol sende.</string>
+
+    <string name="disclaimer_title">Kullanım Şartları ve Sorumluluk Reddi</string>
+
+    <string name="disclaimer_text">
+LÜTFEN DİKKATLİCE OKUYUN
+
+Bu uygulama ("FakeOffScreen"), ekranı siyah göstererek telefonun kapalıymış gibi görünmesini sağlar. Uygulamayı kullanmadan önce aşağıdaki şartları kabul etmeniz gerekir.
+
+1. SORUMLULUK REDDİ
+Bu uygulama "OLDUĞU GİBİ" sunulmuştur. Geliştirici (@ByAnonymous), uygulamanın kullanımından doğabilecek hiçbir doğrudan veya dolaylı zarardan sorumlu tutulamaz.
+
+2. RİSKLER
+Bu uygulama:
+- Telefonunuzun ekranını kilitleyebilir.
+- Yanlış kullanımda telefonunuzun kullanılamaz hale gelmesine neden olabilir.
+- Yeniden başlatma, güç tuşu kombinasyonları veya ses tuşu kombinasyonları ile kurtarma gerektirebilir.
+- Bazı cihazlarda beklenmedik davranışlar gösterebilir.
+
+3. KURTARMA YÖNTEMLERİ
+Uygulama aktifken ekranı açmak için:
+- Önceden belirlediğiniz gizli deseni çizin.
+- Ses açma tuşuna 5 kez hızlıca basın.
+- Telefonu yeniden başlatın (güç tuşuna 10 saniye basılı tutun).
+
+4. YASA DIŞI KULLANIM
+Bu uygulamayı:
+- Başkalarının telefonlarını izinsiz kilitlemek için KULLANMAYIN.
+- Yasa dışı amaçlarla KULLANMAYIN.
+- Başkalarına zarar vermek için KULLANMAYIN.
+Bu tür kullanımlardan doğacak tüm yasal sorumluluk KULLANICIYA aittir.
+
+5. VERİ GİZLİLİĞİ
+Bu uygulama:
+- Hiçbir kişisel verinizi toplamaz.
+- Hiçbir veriyi sunucuya göndermez.
+- Hiçbir internet bağlantısı kurmaz.
+- Sadece cihaz üzerinde çalışır.
+
+6. KABUL
+"Kabul Ediyorum" butonuna basarak yukarıdaki tüm şartları okuduğunuzu, anladığınızı ve kabul ettiğinizi beyan edersiniz.
+
+Geliştirici: @ByAnonymous
+    </string>
+
+    <string name="btn_accept">Kabul Ediyorum</string>
+    <string name="btn_decline">Reddediyorum</string>
+    <string name="decline_message">Şartları kabul etmeden uygulamayı kullanamazsınız.</string>
+
+    <string name="btn_overlay">1) Overlay İzni Ver</string>
+    <string name="btn_admin">2) Admin İzni Ver (Kiosk)</string>
+    <string name="btn_dnd">3) DND İzni Ver</string>
+    <string name="btn_pattern">4) Deseni Ayarla</string>
+    <string name="btn_zone">5) Desen Alanı Ayarla</string>
+    <string name="btn_start">6) Ekranı Karart</string>
+
+    <string name="btn_reset_disclaimer">Şartları Sıfırla</string>
+</resources>

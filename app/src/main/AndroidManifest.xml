@@ -9,17 +9,29 @@
 
     <application
         android:allowBackup="true"
-        android:label="FakeOffScreen"
+        android:label="@string/app_name"
         android:theme="@style/AppTheme">
 
+        <!-- SPLASH (İlk açılan) -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- DISCLAIMER -->
+        <activity
+            android:name=".DisclaimerActivity"
+            android:exported="false"/>
+
+        <!-- ANA EKRAN -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"/>
 
         <activity
             android:name=".PatternSetupActivity"
